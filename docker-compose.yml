@@ -1,0 +1,48 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: supersecret1233
+      POSTGRES_DB: postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"  
+
+  minio:
+    image: minio/minio
+    container_name: minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"  
+      - "9001:9001" 
+    environment:
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: supersecret
+    volumes:
+      - minio_data:/data
+
+  fastapi:
+    build: .
+    depends_on:
+      - db
+      - minio
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/postgres
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: admin
+      MINIO_SECRET_KEY: supersecret
+    restart: always
+    command: ["sh", "-c", "python /app/init_db.py && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+
+volumes:
+  pgdata:
+  minio_data:
